@@ -63,8 +63,8 @@ fn get_points(wire: &Vec<&str>) -> PointLengths {
 }
 
 fn get_intersections(p1: PointLengths, p2: PointLengths) -> Points {
-    let p1: HashSet<Point> = HashSet::from_iter(p1.iter().map((|(x, y, _)| (*x, *y))));
-    let p2: HashSet<Point> = HashSet::from_iter(p2.iter().map((|(x, y, _)| (*x, *y))));
+    let p1: HashSet<Point> = HashSet::from_iter(p1.iter().map(|(x, y, _)| (*x, *y)));
+    let p2: HashSet<Point> = HashSet::from_iter(p2.iter().map(|(x, y, _)| (*x, *y)));
     p1.intersection(&p2).map(|x| *x).collect()
 }
 
