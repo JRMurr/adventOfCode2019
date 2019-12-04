@@ -1,0 +1,63 @@
+use std::collections::HashSet;
+use std::fs;
+use std::iter::FromIterator;
+type Points = HashSet<(isize, isize)>;
+pub fn main() {
+    let contents =
+        fs::read_to_string("./src/day3/input").expect("Something went wrong reading the file");
+    let wires: Vec<Vec<&str>> = contents
+        .lines()
+        .map(|line| line.split(",").collect())
+        .collect();
+    let wire1 = &wires[0];
+    let wire2 = &wires[1];
+    let points1 = get_points(wire1);
+    let points2 = get_points(wire2);
+    let dist = find_closest_intersection_dist(points1, points2);
+    println!("dist: {}", dist);
+}
+
+fn get_points(wire: &Vec<&str>) -> Points {
+    let mut curr_x = 0;
+    let mut curr_y = 0;
+    let mut res = vec![];
+    for path in wire {
+        let (dir, amount) = path.split_at(1);
+        let amount: usize = amount.parse().unwrap();
+        match dir {
+            "R" => {
+                for _ in 0..amount {
+                    curr_x += 1;
+                    res.push((curr_x, curr_y));
+                }
+            }
+            "L" => {
+                for _ in 0..amount {
+                    curr_x -= 1;
+                    res.push((curr_x, curr_y));
+                }
+            }
+            "U" => {
+                for _ in 0..amount {
+                    curr_y += 1;
+                    res.push((curr_x, curr_y));
+                }
+            }
+            "D" => {
+                for _ in 0..amount {
+                    curr_y -= 1;
+                    res.push((curr_x, curr_y));
+                }
+            }
+            _ => panic!("Bad dir"),
+        }
+    }
+    HashSet::from_iter(res)
+}
+
+fn find_closest_intersection_dist(p1: Points, p2: Points) -> isize {
+    p1.intersection(&p2)
+        .map(|(x, y)| x.abs() + y.abs())
+        .min()
+        .unwrap()
+}
