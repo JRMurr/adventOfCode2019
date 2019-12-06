@@ -4,7 +4,7 @@ pub fn main(contents: String) {
         .split(",")
         .map(|x| x.trim().parse().unwrap())
         .collect();
-    let out_buf = run_with_inital_vals(&prog, &mut vec![1 as LangVal]);
+    let out_buf = run_with_inital_vals(&prog, &mut vec![5 as LangVal]);
     println!("out_buf: {:?}", out_buf);
     // let (noun, verb) = find_desired_initals(&prog, 19690720).unwrap();
     // println!(
@@ -19,6 +19,10 @@ enum Opcode {
     // true if in immediate mode for that arg
     Add(bool, bool),
     Mul(bool, bool),
+    JmpT(bool, bool),
+    JmpF(bool, bool),
+    Lt(bool, bool),
+    Equal(bool, bool),
     Set,
     Output,
     Halt,
@@ -63,29 +67,29 @@ fn get_op(code: usize) -> (Opcode, usize) {
             // let (_, out_mode) = parse_digits(code, 1);
             (Output, 2)
         }
+        5 => {
+            let (code, p1_mode) = parse_digits(code, 1);
+            let (_, p2_mode) = parse_digits(code, 1);
+            (JmpT(p1_mode == 1, p2_mode == 1), 3)
+        }
+        6 => {
+            let (code, p1_mode) = parse_digits(code, 1);
+            let (_, p2_mode) = parse_digits(code, 1);
+            (JmpF(p1_mode == 1, p2_mode == 1), 3)
+        }
+        7 => {
+            let (code, p1_mode) = parse_digits(code, 1);
+            let (_, p2_mode) = parse_digits(code, 1);
+            (Lt(p1_mode == 1, p2_mode == 1), 4)
+        }
+        8 => {
+            let (code, p1_mode) = parse_digits(code, 1);
+            let (_, p2_mode) = parse_digits(code, 1);
+            (Equal(p1_mode == 1, p2_mode == 1), 4)
+        }
         99 => (Halt, 0),
         _ => panic!("bad op code: {}", op),
     }
-}
-
-fn conver_params(
-    param_tuple: (LangVal, LangVal, LangVal),
-    mode_tuple: (bool, bool, bool),
-    prog: &mut Vec<LangVal>,
-) -> (LangVal, LangVal, usize) {
-    // println!(
-    //     "mode_tuple: {:?}, param_tuple: {:?}",
-    //     mode_tuple, param_tuple
-    // );
-    let (p1_mode, p2_mode, _) = mode_tuple;
-    let (mut p1, mut p2, output_loc) = param_tuple;
-    if !p1_mode {
-        p1 = prog[p1 as usize];
-    }
-    if !p2_mode {
-        p2 = prog[p2 as usize];
-    }
-    (p1, p2, output_loc as usize)
 }
 
 fn run_prog(
@@ -99,21 +103,49 @@ fn run_prog(
     // println!("get op: {:?}, from: {}", opcode, prog[index]);
     match opcode {
         Add(p1_mode, p2_mode) => {
-            let (p1, p2, output_loc) =
-                conver_params(get_params(index, prog), (p1_mode, p2_mode, true), prog);
-            prog[output_loc] = p1 + p2;
+            let (params, output_loc) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            prog[output_loc] = params.get(0).unwrap() + params.get(1).unwrap();
         }
         Mul(p1_mode, p2_mode) => {
-            let (p1, p2, output_loc) =
-                conver_params(get_params(index, prog), (p1_mode, p2_mode, true), prog);
-            prog[output_loc] = p1 * p2;
+            let (params, output_loc) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            prog[output_loc] = params.get(0).unwrap() * params.get(1).unwrap();
+        }
+        JmpT(p1_mode, p2_mode) => {
+            let (params, _) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            if *params.get(0).unwrap() != 0 {
+                return run_prog(*params.get(1).unwrap() as usize, prog, input_buf, out_buf);
+            }
+        }
+        JmpF(p1_mode, p2_mode) => {
+            let (params, _) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            if *params.get(0).unwrap() == 0 {
+                return run_prog(*params.get(1).unwrap() as usize, prog, input_buf, out_buf);
+            }
+        }
+        Lt(p1_mode, p2_mode) => {
+            let (params, output_loc) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            let to_store = if params.get(0).unwrap() < params.get(1).unwrap() {
+                1
+            } else {
+                0
+            };
+            prog[output_loc] = to_store;
+        }
+        Equal(p1_mode, p2_mode) => {
+            let (params, output_loc) = get_var_params(index, vec![p1_mode, p2_mode], prog);
+            let to_store = if params.get(0).unwrap() == params.get(1).unwrap() {
+                1
+            } else {
+                0
+            };
+            prog[output_loc] = to_store;
         }
         Set => {
-            let output_loc = get_param(index, prog);
+            let output_loc = get_output_loc(index, prog);
             prog[output_loc] = *input_buf.get(0).unwrap();
         }
         Output => {
-            let input_loc = get_param(index, prog);
+            let input_loc = get_output_loc(index, prog);
             out_buf.push(prog[input_loc as usize]);
             // println!("out_buf: {:?}", out_buf);
         }
@@ -124,12 +156,25 @@ fn run_prog(
     }
 }
 
-// returns param1
-fn get_param(index: usize, prog: &Vec<LangVal>) -> usize {
+fn get_output_loc(index: usize, prog: &Vec<LangVal>) -> usize {
     prog[index + 1] as usize
 }
 
-// returns param1, prarm2, output_loc
-fn get_params(index: usize, prog: &Vec<LangVal>) -> (LangVal, LangVal, LangVal) {
-    return (prog[index + 1], prog[index + 2], prog[index + 3]);
+fn convert_param(is_immediate: bool, mut param: LangVal, prog: &Vec<LangVal>) -> LangVal {
+    if !is_immediate {
+        param = prog[param as usize];
+    }
+    param
+}
+
+// will return (params, out_loc)
+fn get_var_params(index: usize, modes: Vec<bool>, prog: &Vec<LangVal>) -> (Vec<LangVal>, usize) {
+    let start = index + 1;
+    let end = start + modes.len();
+    let converted_params = modes
+        .iter()
+        .zip(prog[start..end].iter())
+        .map(|(mode, param)| convert_param(*mode, *param, prog))
+        .collect();
+    (converted_params, prog[end] as usize)
 }
