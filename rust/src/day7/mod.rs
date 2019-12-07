@@ -1,11 +1,12 @@
 type LangVal = isize;
+use itertools::Itertools;
 pub fn main(contents: String) {
     let prog: Vec<LangVal> = contents
         .split(",")
         .map(|x| x.trim().parse().unwrap())
         .collect();
-    let out_buf = run_amps(&prog, (4, 4, 4, 4, 4));
-    // let out_buf = find_amps(&prog);
+    // let out_buf = run_amps(&prog, (1, 0, 4, 3, 2));
+    let out_buf = find_amps(&prog);
     println!("out_buf: {:?}", out_buf);
     // let (noun, verb) = find_desired_initals(&prog, 19690720).unwrap();
     // println!(
@@ -50,28 +51,16 @@ fn run_amps(
 }
 
 fn find_amps(prog: &Vec<LangVal>) -> LangVal {
-    let mut max = 0;
-    let mut phase = (0, 0, 0, 0, 0);
-    let mut c = 0;
-    for a1 in 0..5 {
-        for a2 in 0..5 {
-            for a3 in 0..5 {
-                for a4 in 0..5 {
-                    for a5 in 0..5 {
-                        let res = run_amps(&prog.to_vec(), (a1, a2, a3, a4, a5));
-                        println!("res: {}, max: {}", res, max);
-                        if res > max {
-                            c += 1;
-                            phase = (a1, a2, a3, a4, a5);
-                            max = res;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    println!("phase: {:?}, c: {}", phase, c);
-    max
+    (0..5)
+        .permutations(5)
+        .map(|perm| {
+            run_amps(
+                &prog.to_vec(),
+                (perm[0], perm[1], perm[2], perm[3], perm[4]),
+            )
+        })
+        .max()
+        .unwrap()
 }
 
 // returns (rest of code, digits)
