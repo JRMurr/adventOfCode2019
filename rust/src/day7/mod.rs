@@ -6,7 +6,7 @@ pub fn main(contents: String) {
         .map(|x| x.trim().parse().unwrap())
         .collect();
     // let out_buf = run_amps(&prog, (1, 0, 4, 3, 2));
-    let out_buf = find_amps(&prog);
+    let out_buf = find_amps_part2(&prog);
     println!("out_buf: {:?}", out_buf);
     // let (noun, verb) = find_desired_initals(&prog, 19690720).unwrap();
     // println!(
@@ -29,7 +29,7 @@ enum Opcode {
     Output,
     Halt,
 }
-fn run_with_inital_vals(prog: &Vec<LangVal>, input_buf: &mut Vec<LangVal>) -> LangVal {
+fn run_with_input(prog: &Vec<LangVal>, input_buf: &mut Vec<LangVal>) -> LangVal {
     // println!("noun: {}, verb: {},", noun, verb);
     let mut new_prog = prog.to_vec();
     let mut out_buf = vec![];
@@ -37,24 +37,88 @@ fn run_with_inital_vals(prog: &Vec<LangVal>, input_buf: &mut Vec<LangVal>) -> La
     out_buf[0]
 }
 
-fn run_amps(
+// fn run_amps_part1(
+//     prog: &Vec<LangVal>,
+//     amp_settings: (LangVal, LangVal, LangVal, LangVal, LangVal),
+// ) -> LangVal {
+//     let (a1, a2, a3, a4, a5) = amp_settings;
+//     let out = run_with_input(prog, &mut vec![a1.clone(), 0]);
+//     let out = run_with_input(prog, &mut vec![a2.clone(), out.clone()]);
+//     let out = run_with_input(prog, &mut vec![a3.clone(), out.clone()]);
+//     let out = run_with_input(prog, &mut vec![a4.clone(), out.clone()]);
+//     let out = run_with_input(prog, &mut vec![a5.clone(), out.clone()]);
+//     out
+// }
+
+// fn find_amps_part1(prog: &Vec<LangVal>) -> LangVal {
+//     (0..5)
+//         .permutations(5)
+//         .map(|perm| {
+//             run_amps_part1(
+//                 &prog.to_vec(),
+//                 (perm[0], perm[1], perm[2], perm[3], perm[4]),
+//             )
+//         })
+//         .max()
+//         .unwrap()
+// }
+
+fn setup_with_amp(prog: &Vec<LangVal>, amp: LangVal) -> (Vec<LangVal>, Vec<LangVal>, Vec<LangVal>) {
+    let new_prog = prog.to_vec();
+    let out_buf = vec![];
+    let input_buf = vec![amp];
+    (new_prog, input_buf, out_buf)
+}
+
+fn run_amps_part2(
     prog: &Vec<LangVal>,
     amp_settings: (LangVal, LangVal, LangVal, LangVal, LangVal),
 ) -> LangVal {
     let (a1, a2, a3, a4, a5) = amp_settings;
-    let out = run_with_inital_vals(prog, &mut vec![a1.clone(), 0]);
-    let out = run_with_inital_vals(prog, &mut vec![a2.clone(), out.clone()]);
-    let out = run_with_inital_vals(prog, &mut vec![a3.clone(), out.clone()]);
-    let out = run_with_inital_vals(prog, &mut vec![a4.clone(), out.clone()]);
-    let out = run_with_inital_vals(prog, &mut vec![a5.clone(), out.clone()]);
-    out
+    let (mut prog1, mut in_1, mut out_1) = setup_with_amp(prog, a1);
+    let (mut prog2, mut in_2, mut out_2) = setup_with_amp(prog, a2);
+    let (mut prog3, mut in_3, mut out_3) = setup_with_amp(prog, a3);
+    let (mut prog4, mut in_4, mut out_4) = setup_with_amp(prog, a4);
+    let (mut prog5, mut in_5, mut out_5) = setup_with_amp(prog, a5);
+    let (mut pc_1, mut pc_2, mut pc_3, mut pc_4, mut pc_5) =
+        (Some(0), Some(0), Some(0), Some(0), Some(0));
+    in_1.push(0);
+    let mut out = vec![];
+    loop {
+        // todo: chain outputs together
+        pc_1 = run_prog(pc_1.unwrap(), &mut prog1, &mut in_1, &mut out_1);
+        if pc_1.is_some() {
+            in_2.push(out_1.remove(0));
+        }
+        pc_2 = run_prog(pc_2.unwrap(), &mut prog2, &mut in_2, &mut out_2);
+        if pc_2.is_some() {
+            in_3.push(out_2.remove(0));
+        }
+        pc_3 = run_prog(pc_3.unwrap(), &mut prog3, &mut in_3, &mut out_3);
+        if pc_3.is_some() {
+            in_4.push(out_3.remove(0));
+        }
+        pc_4 = run_prog(pc_4.unwrap(), &mut prog4, &mut in_4, &mut out_4);
+        if pc_4.is_some() {
+            in_5.push(out_4.remove(0));
+        }
+        pc_5 = run_prog(pc_5.unwrap(), &mut prog5, &mut in_5, &mut out_5);
+        // println!("pc_5: {:?}", pc_5);
+        if pc_5.is_none() {
+            // println!("out: {:?}", out);
+            return out.pop().unwrap();
+        } else {
+            let val = out_5.remove(0);
+            in_1.push(val);
+            out.push(val);
+        }
+    }
 }
-
-fn find_amps(prog: &Vec<LangVal>) -> LangVal {
-    (0..5)
+fn find_amps_part2(prog: &Vec<LangVal>) -> LangVal {
+    (5..10)
         .permutations(5)
         .map(|perm| {
-            run_amps(
+            run_amps_part2(
                 &prog.to_vec(),
                 (perm[0], perm[1], perm[2], perm[3], perm[4]),
             )
@@ -120,12 +184,13 @@ fn get_op(code: usize) -> (Opcode, usize) {
     }
 }
 
+// returns Some(pc) if it did not halt, None if it halted
 fn run_prog(
     index: usize,
     prog: &mut Vec<LangVal>,
     input_buf: &mut Vec<LangVal>,
     out_buf: &mut Vec<LangVal>,
-) {
+) -> Option<usize> {
     use Opcode::*;
     let (opcode, jmp_amt) = get_op(prog[index] as usize);
     // println!("get op: {:?}, from: {}", opcode, prog[index]);
@@ -175,13 +240,12 @@ fn run_prog(
         Output => {
             let input_loc = get_output_loc(index, prog);
             out_buf.push(prog[input_loc as usize]);
+            return Some(index + jmp_amt);
             // println!("out_buf: {:?}", out_buf);
         }
-        Halt => return,
+        Halt => return None,
     }
-    if jmp_amt != 0 {
-        run_prog(index + jmp_amt, prog, input_buf, out_buf)
-    }
+    run_prog(index + jmp_amt, prog, input_buf, out_buf)
 }
 
 fn get_output_loc(index: usize, prog: &Vec<LangVal>) -> usize {
