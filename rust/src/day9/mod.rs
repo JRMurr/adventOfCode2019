@@ -1,4 +1,4 @@
-type LangVal = isize;
+type LangVal = i64;
 use std::collections::HashMap;
 // use itertools::Itertools;
 pub fn main(contents: &str) {
@@ -6,7 +6,7 @@ pub fn main(contents: &str) {
         .split(",")
         .map(|x| x.trim().parse().unwrap())
         .collect();
-    println!("out: {}", run_with_input(&prog, &vec![5]));
+    println!("out: {:?}", run_with_input(&prog, &vec![1]));
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -25,17 +25,17 @@ enum Opcode {
     Lt(ParamMode, ParamMode),
     Equal(ParamMode, ParamMode),
     AdjustRel(ParamMode),
-    Set,
-    Output,
+    Set(ParamMode),
+    Output(ParamMode),
     Halt,
 }
 
-fn run_with_input(prog: &Vec<LangVal>, input_buf: &Vec<LangVal>) -> LangVal {
+fn run_with_input(prog: &Vec<LangVal>, input_buf: &Vec<LangVal>) -> Vec<LangVal> {
     // println!("noun: {}, verb: {},", noun, verb);
     let new_prog = prog.to_vec();
     let mut int_code = IntCode::new(new_prog, input_buf.to_vec());
     int_code.run_till_halt();
-    int_code.out_buf[0]
+    int_code.out_buf
 }
 
 // returns (rest of code, digits)
@@ -75,8 +75,14 @@ fn get_op(code: usize) -> (Opcode, usize) {
             let (p1_mode, p2_mode) = get_modes(code);
             (Mul(p1_mode, p2_mode), 4)
         }
-        3 => (Set, 2),
-        4 => (Output, 2),
+        3 => {
+            let (_, p1_mode) = parse_digits(code, 1);
+            (Set(get_mode(p1_mode)), 2)
+        }
+        4 => {
+            let (_, p1_mode) = parse_digits(code, 1);
+            (Output(get_mode(p1_mode)), 2)
+        }
         5 => {
             let (p1_mode, p2_mode) = get_modes(code);
             (JmpT(p1_mode, p2_mode), 3)
@@ -187,14 +193,14 @@ impl IntCode {
                 let (params, _) = self.get_var_params(index, vec![mode]);
                 self.relative_base = self.relative_base + params[0];
             }
-            Set => {
-                let output_loc = self.get_output_loc(index);
+            Set(mode) => {
+                let output_loc = self.get_output_loc(index, mode);
                 let val = self.input_buf.remove(0);
-                self.set_loc(output_loc, val);
+                self.set_loc(output_loc as usize, val);
             }
-            Output => {
-                let input_loc = self.get_output_loc(index);
-                self.out_buf.push(self.get_loc(input_loc as usize));
+            Output(mode) => {
+                let input = self.get_output_loc(index, mode);
+                self.out_buf.push(input);
                 return Some(index + jmp_amt);
             }
             Halt => return None,
@@ -203,10 +209,10 @@ impl IntCode {
     }
 
     pub fn run_till_halt(&mut self) {
-        let pc = self.run_prog(0);
+        let mut pc = self.run_prog(0);
         loop {
             if pc.is_some() {
-                self.run_prog(pc.unwrap());
+                pc = self.run_prog(pc.unwrap());
             } else {
                 return;
             }
@@ -236,7 +242,7 @@ impl IntCode {
         (converted_params, self.get_loc(end) as usize)
     }
 
-    fn get_output_loc(&mut self, index: usize) -> usize {
-        self.get_loc(index + 1) as usize
+    fn get_output_loc(&mut self, index: usize, mode: ParamMode) -> LangVal {
+        self.convert_param(mode, self.get_loc(index + 1))
     }
 }
