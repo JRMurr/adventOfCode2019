@@ -1,4 +1,3 @@
 {
-    "rust-client.enableMultiProjectSetup": true,
     "editor.formatOnSave": true
 }

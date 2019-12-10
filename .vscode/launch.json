@@ -8,7 +8,7 @@
             "type": "lldb",
             "request": "launch",
             "name": "Debug linux",
-            "program": "${workspaceFolder}/rust/target/debug/advent_of_code2019",
+            "program": "${workspaceFolder}/target/debug/advent_of_code2019",
             "args": [],
             "cwd": "${workspaceFolder}"
         }
