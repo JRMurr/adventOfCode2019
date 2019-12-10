@@ -6,10 +6,10 @@ pub fn main(contents: &str) {
         .split(",")
         .map(|x| x.trim().parse().unwrap())
         .collect();
-    println!("out: {:?}", run_with_input(&prog, &vec![1]));
+    println!("out: {:?}", run_with_input(&prog, &vec![2]));
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum ParamMode {
     Position,
     Immediate,
@@ -18,12 +18,12 @@ enum ParamMode {
 
 #[derive(Debug)]
 enum Opcode {
-    Add(ParamMode, ParamMode),
-    Mul(ParamMode, ParamMode),
-    JmpT(ParamMode, ParamMode),
-    JmpF(ParamMode, ParamMode),
-    Lt(ParamMode, ParamMode),
-    Equal(ParamMode, ParamMode),
+    Add(ParamMode, ParamMode, ParamMode),
+    Mul(ParamMode, ParamMode, ParamMode),
+    JmpT(ParamMode, ParamMode, ParamMode),
+    JmpF(ParamMode, ParamMode, ParamMode),
+    Lt(ParamMode, ParamMode, ParamMode),
+    Equal(ParamMode, ParamMode, ParamMode),
     AdjustRel(ParamMode),
     Set(ParamMode),
     Output(ParamMode),
@@ -55,25 +55,25 @@ fn get_mode(digit: usize) -> ParamMode {
     }
 }
 
-fn get_modes(code: usize) -> (ParamMode, ParamMode) {
+fn get_modes(code: usize) -> (ParamMode, ParamMode, ParamMode) {
     let (code, d1) = parse_digits(code, 1);
-    let (_, d2) = parse_digits(code, 1);
-    (get_mode(d1), get_mode(d2))
+    let (code, d2) = parse_digits(code, 1);
+    let (_, d3) = parse_digits(code, 1);
+    (get_mode(d1), get_mode(d2), get_mode(d3))
 }
 
 // returns opcode + jmp amount
 fn get_op(code: usize) -> (Opcode, usize) {
     use Opcode::*;
-    // println!("start code: {}", code);
     let (code, op) = parse_digits(code, 2);
     match op {
         1 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (Add(p1_mode, p2_mode), 4)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (Add(p1_mode, p2_mode, p3_mode), 4)
         }
         2 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (Mul(p1_mode, p2_mode), 4)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (Mul(p1_mode, p2_mode, p3_mode), 4)
         }
         3 => {
             let (_, p1_mode) = parse_digits(code, 1);
@@ -84,20 +84,20 @@ fn get_op(code: usize) -> (Opcode, usize) {
             (Output(get_mode(p1_mode)), 2)
         }
         5 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (JmpT(p1_mode, p2_mode), 3)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (JmpT(p1_mode, p2_mode, p3_mode), 3)
         }
         6 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (JmpF(p1_mode, p2_mode), 3)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (JmpF(p1_mode, p2_mode, p3_mode), 3)
         }
         7 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (Lt(p1_mode, p2_mode), 4)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (Lt(p1_mode, p2_mode, p3_mode), 4)
         }
         8 => {
-            let (p1_mode, p2_mode) = get_modes(code);
-            (Equal(p1_mode, p2_mode), 4)
+            let (p1_mode, p2_mode, p3_mode) = get_modes(code);
+            (Equal(p1_mode, p2_mode, p3_mode), 4)
         }
         9 => {
             let (_, p1_mode) = parse_digits(code, 1);
@@ -147,6 +147,7 @@ impl IntCode {
     }
 
     fn set_loc(&mut self, index: usize, value: LangVal) {
+        // println!("setting: {}, to be: {}", index, value);
         if index < self.prog.len() {
             self.prog[index] = value;
         } else {
@@ -154,58 +155,70 @@ impl IntCode {
         }
     }
 
-    pub fn run_prog(&mut self, index: usize) -> Option<usize> {
+    pub fn run_prog(&mut self, mut index: usize) -> Option<usize> {
         use Opcode::*;
-        let (opcode, jmp_amt) = get_op(self.get_loc(index) as usize);
-        // println!("get op: {:?}, from: {}", opcode, prog[index]);
-        match opcode {
-            Add(p1_mode, p2_mode) => {
-                let (params, output_loc) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                self.set_loc(output_loc, params[0] + params[1]);
-            }
-            Mul(p1_mode, p2_mode) => {
-                let (params, output_loc) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                self.set_loc(output_loc, params[0] * params[1]);
-            }
-            JmpT(p1_mode, p2_mode) => {
-                let (params, _) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                if params[0] != 0 {
-                    return self.run_prog(params[1] as usize);
+        loop {
+            let (opcode, jmp_amt) = get_op(self.get_loc(index) as usize);
+            // println!(
+            //     "---------------\nget op: {:?}, from: {}",
+            //     opcode,
+            //     self.get_loc(index)
+            // );
+            match opcode {
+                Add(p1_mode, p2_mode, p3_mode) => {
+                    let (params, output_loc) =
+                        self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    self.set_loc(output_loc, params[0] + params[1]);
                 }
-            }
-            JmpF(p1_mode, p2_mode) => {
-                let (params, _) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                if params[0] == 0 {
-                    return self.run_prog(params[1] as usize);
+                Mul(p1_mode, p2_mode, p3_mode) => {
+                    let (params, output_loc) =
+                        self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    self.set_loc(output_loc, params[0] * params[1]);
                 }
+                JmpT(p1_mode, p2_mode, p3_mode) => {
+                    let (params, _) = self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    if params[0] != 0 {
+                        index = params[1] as usize;
+                        continue;
+                    }
+                }
+                JmpF(p1_mode, p2_mode, p3_mode) => {
+                    let (params, _) = self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    if params[0] == 0 {
+                        index = params[1] as usize;
+                        continue;
+                    }
+                }
+                Lt(p1_mode, p2_mode, p3_mode) => {
+                    let (params, output_loc) =
+                        self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    let to_store = if params[0] < params[1] { 1 } else { 0 };
+                    self.set_loc(output_loc, to_store);
+                }
+                Equal(p1_mode, p2_mode, p3_mode) => {
+                    let (params, output_loc) =
+                        self.get_var_params(index, vec![p1_mode, p2_mode, p3_mode]);
+                    let to_store = if params[0] == params[1] { 1 } else { 0 };
+                    self.set_loc(output_loc, to_store);
+                }
+                AdjustRel(mode) => {
+                    let val = self.convert_param(mode, self.get_loc(index + 1));
+                    self.relative_base = self.relative_base + val;
+                }
+                Set(mode) => {
+                    let output_loc = self.convert_output_param(mode, self.get_loc(index + 1));
+                    let val = self.input_buf.remove(0);
+                    self.set_loc(output_loc as usize, val);
+                }
+                Output(mode) => {
+                    let to_out = self.convert_param(mode, self.get_loc(index + 1));
+                    self.out_buf.push(to_out);
+                    return Some(index + jmp_amt);
+                }
+                Halt => return None,
             }
-            Lt(p1_mode, p2_mode) => {
-                let (params, output_loc) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                let to_store = if params[0] < params[1] { 1 } else { 0 };
-                self.set_loc(output_loc, to_store);
-            }
-            Equal(p1_mode, p2_mode) => {
-                let (params, output_loc) = self.get_var_params(index, vec![p1_mode, p2_mode]);
-                let to_store = if params[0] == params[1] { 1 } else { 0 };
-                self.set_loc(output_loc, to_store);
-            }
-            AdjustRel(mode) => {
-                let (params, _) = self.get_var_params(index, vec![mode]);
-                self.relative_base = self.relative_base + params[0];
-            }
-            Set(mode) => {
-                let output_loc = self.get_output_loc(index, mode);
-                let val = self.input_buf.remove(0);
-                self.set_loc(output_loc as usize, val);
-            }
-            Output(mode) => {
-                let input = self.get_output_loc(index, mode);
-                self.out_buf.push(input);
-                return Some(index + jmp_amt);
-            }
-            Halt => return None,
+            index = index + jmp_amt;
         }
-        self.run_prog(index + jmp_amt)
     }
 
     pub fn run_till_halt(&mut self) {
@@ -230,19 +243,36 @@ impl IntCode {
             Immediate => param,
         }
     }
+
+    fn convert_output_param(&mut self, mode: ParamMode, param: LangVal) -> usize {
+        use ParamMode::*;
+        match mode {
+            Immediate => panic!("should not be immediate mode for output"),
+            Position => param as usize,
+            Relative => (self.relative_base + param) as usize,
+        }
+    }
     // will return (params, out_loc)
     fn get_var_params(&mut self, index: usize, modes: Vec<ParamMode>) -> (Vec<LangVal>, usize) {
         let start = index + 1;
-        let end = start + modes.len();
+        let end = start + (modes.len() - 1);
         let converted_params = modes
             .iter()
             .zip(self.get_range(start, end).iter())
             .map(|(mode, param)| self.convert_param(*mode, *param))
             .collect();
-        (converted_params, self.get_loc(end) as usize)
+        (
+            converted_params,
+            self.convert_output_param(*modes.last().unwrap(), self.get_loc(end)),
+        )
     }
 
-    fn get_output_loc(&mut self, index: usize, mode: ParamMode) -> LangVal {
-        self.convert_param(mode, self.get_loc(index + 1))
-    }
+    // fn get_output_loc(&mut self, index: usize, mode: ParamMode) -> LangVal {
+    //     use ParamMode::*;
+    //     match mode {
+    //         Position => self.get_loc(index + 1),
+    //         Immediate =>
+    //     }
+    //     self.convert_param(mode, self.get_loc(index + 1))
+    // }
 }
