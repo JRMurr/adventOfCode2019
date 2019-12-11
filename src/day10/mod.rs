@@ -3,6 +3,7 @@ use fraction::GenericFraction;
 use std::collections::HashSet;
 type MapList = Vec<Vec<char>>;
 type Points = HashSet<Point>;
+// NOTE: slope is x/y aka run over rise, but it still works lol
 type SlopeFrac = GenericFraction<usize>;
 type Slope = (bool, bool, SlopeFrac);
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -10,6 +11,7 @@ struct Point {
     x: isize,
     y: isize,
 }
+
 impl Point {
     pub fn new(x: usize, y: usize) -> Self {
         Point {
@@ -26,6 +28,15 @@ impl Point {
         );
         let (x, y) = (x.abs() as usize, y.abs() as usize);
         (x_is_pos, y_is_pos, SlopeFrac::new(x, y))
+    }
+
+    pub fn get_dist(&self, other: &Point) -> f64 {
+        let (x, y) = (
+            other.x as f64 - self.x as f64,
+            other.y as f64 - self.y as f64,
+        );
+        (x.powi(2) + y.powi(2)).sqrt()
+        // x.abs() as usize + y.abs() as usize
     }
 
     pub fn add_slope(&self, slope: &Slope, width: usize, height: usize) -> Option<Point> {
@@ -53,6 +64,40 @@ impl Point {
     }
 }
 
+fn angle_of_slope(slope: &Slope) -> f64 {
+    use fraction::GenericFraction::*;
+    let (x_is_pos, y_is_pos, slope) = slope;
+    match slope {
+        Rational(_, ratio) => {
+            let (x, y) = (*ratio.numer() as f64, *ratio.denom() as f64);
+            if x == 0f64 {
+                if !*y_is_pos {
+                    // its above
+                    0f64
+                } else {
+                    180f64
+                }
+            } else {
+                let angle = (x / y).atan() * 180f64 * std::f64::consts::FRAC_1_PI;
+                match (x_is_pos, y_is_pos) {
+                    (true, false) => angle,
+                    (true, true) => angle + 90f64,
+                    (false, true) => angle + 180f64,
+                    (false, false) => angle + 270f64,
+                }
+            }
+        }
+        Infinity(_) => {
+            if *x_is_pos {
+                90f64
+            } else {
+                270f64
+            }
+        }
+        _ => panic!("ass in convert angle"),
+    }
+}
+
 #[derive(Debug)]
 struct Map {
     // map: Vec<Vec<char>>,
@@ -64,8 +109,38 @@ pub fn main(contents: &str) {
     let map = Map::new(contents);
     let best = map.get_best_point();
     println!("best point {:?}", best);
-    println!("count: {}", map.get_count_for_point(&best.unwrap()));
+    let destroyed = map.destroy_roids(best.unwrap());
+    // let destroyed = map.destroy_roids(&Point { x: 11, y: 13 });
+
+    println!("destroyed: {:?}", destroyed.last())
+    // println!("best point {:?}", best);
+    // println!("count: {}", map.get_count_for_point(&best.unwrap()));
     // println!("map: {:?}", map);
+    // for (x, y) in vec![
+    //     // (0, 2),
+    //     // (1, 3),
+    //     // (1, 2),
+    //     // (2, 3),
+    //     // (1, 1),
+    //     // (3, 2),
+    //     // (4, 2),
+    //     // (3, 1),
+    //     (1, 1),
+    //     (1, -1),
+    //     (-1, -1),
+    //     (-1, 1),
+    //     (0, 1),
+    //     (1, 0),
+    //     (0, -1),
+    //     (-1, 0),
+    // ] {
+    //     let angle = angle_of_slope(&(
+    //         x > 0,
+    //         y > 0,
+    //         SlopeFrac::new((x as isize).abs() as usize, (y as isize).abs() as usize),
+    //     ));
+    //     println!("angle: {}, from point: {:?}", angle, (x, y));
+    // }
 }
 
 impl Map {
@@ -74,7 +149,7 @@ impl Map {
         let mut points = HashSet::new();
         for (y, line) in map.iter().enumerate() {
             for (x, p) in line.iter().enumerate() {
-                if *p == '#' {
+                if *p == '#' || *p == 'X' {
                     points.insert(Point::new(x, y));
                 }
             }
@@ -122,5 +197,57 @@ impl Map {
             }
         }
         can_see.len()
+    }
+
+    fn get_closest(
+        &self,
+        point: &Point,
+        min_angle: f64,
+        destroyed: &Vec<Point>,
+    ) -> Option<(&Point, f64)> {
+        let mut min_slope = 400f64; //above 360 so its cool
+        let mut res = None;
+        for p in self.points.iter() {
+            if destroyed.contains(p) || p == point {
+                continue;
+            }
+            let slope = point.get_slope(p);
+            let angle = angle_of_slope(&slope);
+            if angle > min_angle {
+                if angle < min_slope {
+                    min_slope = angle;
+                    res = Some((p, angle));
+                } else if angle == min_slope {
+                    let (other, _) = res.unwrap();
+                    let other_dist = point.get_dist(other);
+                    let this_dist = point.get_dist(p);
+                    if this_dist < other_dist {
+                        res = Some((p, angle));
+                    }
+                }
+            }
+        }
+        res
+    }
+
+    fn destroy_roids(&self, start: &Point) -> Vec<Point> {
+        let mut destroyed: Vec<Point> = vec![];
+        // angle will be >=0 so smallest to start
+        let mut min_angle = -1f64;
+        // sub 1 since the start will not be destroyed
+        while destroyed.len() < self.points.len() - 1 {
+            let new_point = self.get_closest(start, min_angle, &destroyed);
+            match new_point {
+                Some((p, angle)) => {
+                    destroyed.push(*p);
+                    min_angle = angle;
+                }
+                None => {
+                    // do a rotation
+                    min_angle = -1f64;
+                }
+            }
+        }
+        destroyed
     }
 }
