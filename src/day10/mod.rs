@@ -79,12 +79,13 @@ fn angle_of_slope(slope: &Slope) -> f64 {
                 }
             } else {
                 let angle = (x / y).atan() * 180f64 * std::f64::consts::FRAC_1_PI;
-                match (x_is_pos, y_is_pos) {
+                let angle = match (x_is_pos, y_is_pos) {
                     (true, false) => angle,
                     (true, true) => angle + 90f64,
                     (false, true) => angle + 180f64,
                     (false, false) => angle + 270f64,
-                }
+                };
+                angle % 360f64
             }
         }
         Infinity(_) => {
@@ -109,12 +110,12 @@ pub fn main(contents: &str) {
     let map = Map::new(contents);
     let best = map.get_best_point();
     println!("best point {:?}", best);
+    // println!("count: {}", map.get_count_for_point(&best.unwrap()));
     let destroyed = map.destroy_roids(best.unwrap());
     // let destroyed = map.destroy_roids(&Point { x: 11, y: 13 });
 
-    println!("destroyed: {:?}", destroyed.last())
+    println!("destroyed: {:?}", destroyed[15])
     // println!("best point {:?}", best);
-    // println!("count: {}", map.get_count_for_point(&best.unwrap()));
     // println!("map: {:?}", map);
     // for (x, y) in vec![
     //     // (0, 2),
@@ -175,28 +176,15 @@ impl Map {
     }
 
     pub fn get_count_for_point(&self, point: &Point) -> usize {
-        let mut can_see: Points = HashSet::new();
-        let mut not_see: Points = HashSet::new();
-        not_see.insert(*point);
+        let mut slopes = HashSet::new();
         for p in self.points.iter() {
-            if not_see.contains(p) {
+            if p == point {
                 continue;
             }
             let slope = point.get_slope(p);
-            let mut new_point_opt = point.add_slope(&slope, self.width, self.height);
-            let mut blocked = false;
-            while new_point_opt.is_some() {
-                let new_point = new_point_opt.unwrap();
-                if self.points.contains(&new_point) && !not_see.contains(&new_point) && !blocked {
-                    blocked = true;
-                    can_see.insert(new_point);
-                } else if self.points.contains(&new_point) && blocked {
-                    not_see.insert(new_point);
-                }
-                new_point_opt = new_point.add_slope(&slope, self.width, self.height);
-            }
+            slopes.insert(slope);
         }
-        can_see.len()
+        slopes.len()
     }
 
     fn get_closest(
