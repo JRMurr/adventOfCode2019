@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 itertools = "0.8"
 fraction = "0.6"
+regex = "1"
+lazy_static = "1.4"
