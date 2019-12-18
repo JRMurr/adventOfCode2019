@@ -94,20 +94,24 @@ fn get_op(code: usize) -> (Opcode, usize) {
 
 pub struct IntCode {
     prog: Vec<LangVal>,
-    input_buf: Vec<LangVal>,
+    pub input_buf: Vec<LangVal>,
     pub out_buf: Vec<LangVal>,
     relative_base: LangVal,
     memory: HashMap<usize, LangVal>,
+    ask_for_input: bool,
 }
 
+type ProgramCounter = Option<(usize, bool)>;
+
 impl IntCode {
-    pub fn new(prog: Vec<LangVal>) -> IntCode {
+    pub fn new(prog: Vec<LangVal>, ask_for_input: bool) -> IntCode {
         IntCode {
             prog,
             input_buf: vec![],
             out_buf: vec![],
             relative_base: 0,
             memory: HashMap::new(),
+            ask_for_input,
         }
     }
 
@@ -147,7 +151,6 @@ impl IntCode {
     }
 
     pub fn set_loc(&mut self, index: usize, value: LangVal) {
-        // println!("setting: {}, to be: {}", index, value);
         if index < self.prog.len() {
             self.prog[index] = value;
         } else {
@@ -155,7 +158,7 @@ impl IntCode {
         }
     }
 
-    pub fn run_prog(&mut self, mut index: usize) -> Option<usize> {
+    pub fn run_prog(&mut self, mut index: usize) -> ProgramCounter {
         use Opcode::*;
         loop {
             let (opcode, jmp_amt) = get_op(self.get_loc(index) as usize);
@@ -206,14 +209,17 @@ impl IntCode {
                     self.relative_base = self.relative_base + val;
                 }
                 Set(mode) => {
-                    let output_loc = self.convert_output_param(mode, self.get_loc(index + 1));
+                    if self.input_buf.is_empty() && self.ask_for_input {
+                        return Some((index, true));
+                    }
                     let val = self.input_buf.remove(0);
+                    let output_loc = self.convert_output_param(mode, self.get_loc(index + 1));
                     self.set_loc(output_loc as usize, val);
                 }
                 Output(mode) => {
                     let to_out = self.convert_param(mode, self.get_loc(index + 1));
                     self.out_buf.push(to_out);
-                    return Some(index + jmp_amt);
+                    return Some((index + jmp_amt, false));
                 }
                 Halt => return None,
             }
@@ -221,15 +227,24 @@ impl IntCode {
         }
     }
 
-    pub fn run_till_n_outputs(&mut self, start_pc: usize, n: usize) -> Option<usize> {
-        let mut pc = Some(start_pc);
-        for _ in 0..n {
+    // returns (pc, ask_for_input,remaining loops) remaining loops will be non zero if the prog is asking for input
+    pub fn run_till_n_outputs(
+        &mut self,
+        start_pc: usize,
+        n: usize,
+    ) -> Option<(usize, bool, usize)> {
+        let mut pc: ProgramCounter = Some((start_pc, false));
+        for i in 0..n {
             match pc {
-                Some(index) => pc = self.run_prog(index),
+                Some((index, false)) => pc = self.run_prog(index),
+                Some((index, true)) => return Some((index, true, n - i)),
                 None => return None,
             }
         }
-        pc
+        match pc {
+            Some((index, ask_for_input)) => Some((index, ask_for_input, 0)),
+            None => None,
+        }
     }
 
     fn convert_param(&mut self, mode: ParamMode, param: LangVal) -> LangVal {
