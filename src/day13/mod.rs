@@ -42,7 +42,7 @@ impl Tile {
             Wall => '█',
             Block => '▓',
             Paddle => '─',
-            Ball => 'O',
+            Ball => '©',
         }
     }
 }
@@ -147,15 +147,21 @@ impl Arcade {
             return None;
         }
         self.display();
-        let mut ball_and_paddle_iter = self.tiles.iter().filter_map(|(&pos, &tile)| match tile {
-            Tile::Ball => Some((pos, tile)),
-            Tile::Paddle => Some((pos, tile)),
-            _ => None,
-        });
-        let ball_pos = ball_and_paddle_iter
+        let mut ball_and_paddle_vec: Vec<((LangVal, LangVal), Tile)> = self
+            .tiles
+            .iter()
+            .filter_map(|(&pos, &tile)| match tile {
+                Tile::Ball => Some((pos, tile)),
+                Tile::Paddle => Some((pos, tile)),
+                _ => None,
+            })
+            .collect();
+        let ball_pos = ball_and_paddle_vec
+            .iter()
             .find(|(_, tile)| *tile == Tile::Ball)
             .map(|(pos, _)| pos);
-        let paddle_pos = ball_and_paddle_iter
+        let paddle_pos = ball_and_paddle_vec
+            .iter()
             .find(|(_, tile)| *tile == Tile::Paddle)
             .map(|(pos, _)| pos);
         println!("ball: {:?}\tpaddle:{:?}", ball_pos, paddle_pos);
