@@ -3,7 +3,7 @@ module Day02.Mod where
 import Data.List.Split
 import qualified Data.Vector.Unboxed as V
 import PseudoMacros (__FILE__)
-import Utils.Mod (getExampleInputFile, getInputFile, readInput, removeEmptyString)
+import Utils.Mod (getExampleInputFile, getInputFile, readInputLines, removeEmptyString)
 
 type ProgramInput = (V.Vector Int)
 
@@ -61,7 +61,7 @@ getOutput Program {input = input} = (V.!) input 0
 
 getProg :: IO Program
 getProg = do
-  input <- readInput $ getInputFile $__FILE__
+  input <- readInputLines $ getInputFile $__FILE__
   let flatInput = concatMap (removeEmptyString . splitOn ",") input
   let programInputLst = map read flatInput :: [Int]
   return Program {input = V.fromList programInputLst, pc = 0}

@@ -26,6 +26,7 @@ executable aoc2019
 
     -- Modules included in this executable, other than Main.
     other-modules:
+        Day04.Mod
         Day03.Mod
         Day02.Mod
         Day01.Mod
@@ -39,7 +40,8 @@ executable aoc2019
         pseudomacros >= 0.0.2,
         filepath >= 1.4.0,
         vector >= 0.12.3,
-        containers
+        containers,
+        megaparsec >= 9.0,
     hs-source-dirs:   app
     default-language: Haskell2010
     default-extensions: 
