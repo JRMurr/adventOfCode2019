@@ -27,8 +27,8 @@ executable aoc2019
     -- Modules included in this executable, other than Main.
     other-modules:
         Day02.Mod
-        Utils.Mod
         Day01.Mod
+        Utils.Mod
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -36,7 +36,8 @@ executable aoc2019
         base ^>=4.14.1.0,
         split >= 0.2,
         pseudomacros >= 0.0.2,
-        filepath >= 1.4.0
+        filepath >= 1.4.0,
+        vector >= 0.12.3
     hs-source-dirs:   app
     default-language: Haskell2010
     default-extensions: 

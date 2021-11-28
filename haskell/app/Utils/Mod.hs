@@ -12,3 +12,6 @@ getInputFile sourceFilePath = combine (takeDirectory sourceFilePath) "in"
 -- | Given a source file path, get the `in.example` file in that directory
 getExampleInputFile :: FilePath -> FilePath
 getExampleInputFile sourceFilePath = combine (takeDirectory sourceFilePath) "in.example"
+
+removeEmptyString :: [String] -> [String]
+removeEmptyString = filter (not . null)
