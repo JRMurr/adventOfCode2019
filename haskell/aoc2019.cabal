@@ -26,6 +26,7 @@ executable aoc2019
 
     -- Modules included in this executable, other than Main.
     other-modules:
+        Day02.Mod
         Utils.Mod
         Day01.Mod
 
