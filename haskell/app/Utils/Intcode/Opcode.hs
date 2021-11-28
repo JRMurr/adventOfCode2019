@@ -20,6 +20,14 @@ data Opcode a
     Inp !a
   | -- | __output:__          @output(a)@
     Out !a
+  | -- | __jump-if-true:__    @if a then goto b@
+    Jnz !a !a
+  | -- | __jump-if-false:__   @if !a then goto b@
+    Jz !a !a
+  | -- | __less-than:__       @c = a < b@
+    Lt !a !a !a
+  | -- | __equals:__          @c = a == b@
+    Eq !a !a !a
   | -- | __halt__
     Hlt
   deriving (Eq, Ord, Read, Show, Functor, Foldable)
@@ -38,6 +46,10 @@ decode n =
     2 -> fill (Mul 1 2 3)
     3 -> fill (Inp 1)
     4 -> fill (Out 1)
+    5 -> fill (Jnz 1 2)
+    6 -> fill (Jz 1 2)
+    7 -> fill (Lt 1 2 3)
+    8 -> fill (Eq 1 2 3)
     99 -> fill Hlt
     _ -> Nothing
   where
@@ -66,6 +78,10 @@ instance Traversable Opcode where
       Mul x y z -> Mul <$> f x <*> f y <*> f z
       Inp x -> Inp <$> f x
       Out x -> Out <$> f x
+      Jnz x y -> Jnz <$> f x <*> f y
+      Jz x y -> Jz <$> f x <*> f y
+      Lt x y z -> Lt <$> f x <*> f y <*> f z
+      Eq x y z -> Eq <$> f x <*> f y <*> f z
       Hlt -> pure Hlt
 
 -- | Extract the ith digit from a number.
