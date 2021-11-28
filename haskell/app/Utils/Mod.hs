@@ -26,6 +26,14 @@ removeEmptyString = filter (not . null)
 
 type Parser = Parsec Void String
 
+getParsedInput :: FilePath -> Parser a -> IO a
+getParsedInput path p =
+  do
+    input <- readFile path
+    case parse p "input" input of
+      Left e -> fail (errorBundlePretty e)
+      Right a -> return a
+
 -- | Run a parser with 'parseLines' on the input file.
 getParsedLines :: String -> Parser a -> [a]
 getParsedLines input p =
