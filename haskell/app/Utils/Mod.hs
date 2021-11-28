@@ -34,6 +34,11 @@ getParsedInput path p =
       Left e -> fail (errorBundlePretty e)
       Right a -> return a
 
+readParsedLines :: FilePath -> Parser a -> IO [a]
+readParsedLines path p = do
+  file <- readFile path
+  return (getParsedLines file p)
+
 -- | Run a parser with 'parseLines' on the input file.
 getParsedLines :: String -> Parser a -> [a]
 getParsedLines input p =
