@@ -7,6 +7,8 @@ import qualified Data.Primitive.PrimArray as P
 data Machine = Machine
   { -- | program counter
     pc :: !Int,
+    -- | relative base pointer
+    relBase :: !Int,
     -- | memory updates
     memUpdates :: !(IntMap Int),
     -- | initial memory
@@ -49,6 +51,7 @@ new ::
 new initialValues =
   Machine
     { pc = 0,
+      relBase = 0,
       memUpdates = IntMap.empty,
       memInitial = P.primArrayFromList initialValues
     }
@@ -75,3 +78,12 @@ jmp ::
   Machine
 jmp i mach = mach {pc = i}
 {-# INLINE jmp #-}
+
+-- | Add offset to relative base pointer.
+addRelBase ::
+  -- | offset
+  Int ->
+  Machine ->
+  Machine
+addRelBase i mach = mach {relBase = relBase mach + i}
+{-# INLINE addRelBase #-}

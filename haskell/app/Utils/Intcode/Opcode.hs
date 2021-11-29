@@ -8,6 +8,8 @@ data Mode
     Abs
   | -- | immediate
     Imm
+  | -- | relative position
+    Rel
   deriving (Eq, Ord, Read, Show)
 
 -- | Opcodes parameterized over argument representations. This allows the transformations form Opcode of mode to Opcode of ints
@@ -28,6 +30,8 @@ data Opcode a
     Lt !a !a !a
   | -- | __equals:__          @c = a == b@
     Eq !a !a !a
+  | -- | __adjust-rel-base:__ @rel += a@
+    Arb !a
   | -- | __halt__
     Hlt
   deriving (Eq, Ord, Read, Show, Functor, Foldable)
@@ -50,6 +54,7 @@ decode n =
     6 -> fill (Jz 1 2)
     7 -> fill (Lt 1 2 3)
     8 -> fill (Eq 1 2 3)
+    9 -> fill (Arb 1)
     99 -> fill Hlt
     _ -> Nothing
   where
@@ -67,6 +72,7 @@ parameter n i =
   case digit (i + 1) n of
     0 -> Just Abs
     1 -> Just Imm
+    2 -> Just Rel
     _ -> Nothing
 
 -- | Arguments visited from left to right.
@@ -82,6 +88,7 @@ instance Traversable Opcode where
       Jz x y -> Jz <$> f x <*> f y
       Lt x y z -> Lt <$> f x <*> f y <*> f z
       Eq x y z -> Eq <$> f x <*> f y <*> f z
+      Arb x -> Arb <$> f x
       Hlt -> pure Hlt
 
 -- | Extract the ith digit from a number.

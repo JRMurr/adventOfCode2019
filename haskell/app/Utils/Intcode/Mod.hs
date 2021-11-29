@@ -189,6 +189,7 @@ step mach =
     toPtr :: Int -> Mode -> Int
     toPtr i Imm = i -- This i is the address to the value we need
     toPtr i Abs = mach ! i -- the address we need is stored at index i
+    toPtr i Rel = mach ! i + relBase mach
 
 -- | Apply a decoded opcode to the machine state.
 opcodeImpl ::
@@ -208,6 +209,7 @@ opcodeImpl o m =
     Jz a b -> Step (if at a == 0 then jmp (at b) m else m)
     Lt a b c -> Step (set c (if at a < at b then 1 else 0) m)
     Eq a b c -> Step (set c (if at a == at b then 1 else 0) m)
+    Arb a -> Step (addRelBase (at a) m)
     Hlt -> StepHalt
   where
     at i = m ! i
