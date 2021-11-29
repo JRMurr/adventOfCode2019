@@ -68,3 +68,9 @@ number = signed (return ()) decimal
 -- | Count the number of elements in a foldable value that satisfy a predicate.
 count :: Foldable t => (a -> Bool) -> t a -> Int
 count p = foldl' (\acc x -> if p x then acc + 1 else acc) 0
+
+chunks :: Int -> [a] -> [[a]]
+chunks _ [] = []
+chunks n xs =
+  case splitAt n xs of
+    (a, b) -> a : chunks n b
