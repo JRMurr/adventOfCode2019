@@ -74,3 +74,15 @@ chunks _ [] = []
 chunks n xs =
   case splitAt n xs of
     (a, b) -> a : chunks n b
+
+-- | Returns a list of ways to select an element from a list without
+-- replacement.
+--
+-- >>> pickOne []
+-- []
+-- >>> pickOne [1]
+-- [(1,[])]
+-- >>> pickOne [1,2,3]
+-- [(1,[2,3]),(2,[1,3]),(3,[1,2])]
+pickOne :: [a] -> [(a, [a])]
+pickOne xs = [(x, l ++ r) | (l, x : r) <- zip (inits xs) (tails xs)]
